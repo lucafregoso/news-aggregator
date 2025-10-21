@@ -35,6 +35,7 @@ export const resolvers = {
   Mutation: {
     ...sourceResolvers.Mutation,
     ...dataResolvers.Mutation,
+    ...summaryResolvers.Mutation,
   },
 
   Source: sourceResolvers.Source,

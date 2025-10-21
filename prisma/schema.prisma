@@ -55,4 +55,34 @@ model Summary {
   generatedAt   DateTime @default(now())
   articleIds    String[]
   queryTopics   String[]
+
+  @@index([startDate, endDate])
+  @@index([generatedAt])
+}
+
+// ✅ NUOVO MODEL PER JOB QUEUE
+model SummaryJob {
+  id           String   @id @default(uuid())
+  startDate    DateTime
+  endDate      DateTime
+  topics       String[]
+
+  // Status: QUEUED, PROCESSING, COMPLETED, FAILED
+  status       String   @default("QUEUED")
+
+  // Progress tracking
+  currentTopic Int     @default(0)
+  totalTopics  Int     @default(0)
+
+  // Risultati
+  result       Json?
+  error        String?
+
+  // Timestamps
+  createdAt    DateTime @default(now())
+  startedAt    DateTime?
+  completedAt  DateTime?
+
+  @@index([status])
+  @@index([createdAt])
 }
