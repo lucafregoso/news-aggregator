@@ -1,0 +1,41 @@
+type Article {
+  id: ID!
+  source: Source!
+  title: String!
+  content: String!
+  author: String
+  publishedAt: DateTime!
+  topic: String!
+  macroTopic: String!
+  url: String
+  extractedAt: DateTime!
+}
+
+type CheckResult {
+  checkedSources: Int!
+  newArticles: Int!
+  pendingTopicExtraction: Int!
+  errors: [String!]!
+}
+
+extend type Query {
+  articles(
+    startDate: DateTime!
+    endDate: DateTime!
+    topics: [String!]
+  ): [Article!]!
+
+  # NUOVO: Conta articoli con topic pending
+  pendingTopicsCount: Int!
+}
+
+extend type Mutation {
+  # AGGIORNATO: supporta fast mode
+  checkSources(
+    sourceIds: [ID!]
+    fastMode: Boolean
+  ): CheckResult!
+
+  # NUOVO: Processa articoli con topic pending
+  processPendingTopics(batchSize: Int): Int!
+}

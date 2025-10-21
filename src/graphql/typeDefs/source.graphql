@@ -1,0 +1,52 @@
+type Source {
+  id: ID!
+  name: String!
+  type: SourceType!
+  config: SourceConfig!
+  active: Boolean!
+  lastChecked: DateTime
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+enum SourceType {
+  RSS
+  YOUTUBE
+  IMAP
+}
+
+type SourceConfig {
+  feedUrl: String
+  channelId: String
+  host: String
+  port: Int
+  username: String
+  folders: [String!]
+}
+
+input SourceInput {
+  name: String!
+  type: SourceType!
+  config: SourceConfigInput!
+}
+
+input SourceConfigInput {
+  feedUrl: String
+  channelId: String
+  host: String
+  port: Int
+  username: String
+  password: String
+  folders: [String!]
+}
+
+type Query {
+  sources: [Source!]!
+  source(id: ID!): Source
+}
+
+type Mutation {
+  addSource(input: SourceInput!): Source!
+  updateSource(id: ID!, input: SourceInput!): Source!
+  deleteSource(id: ID!): Boolean!
+}

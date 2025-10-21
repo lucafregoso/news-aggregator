@@ -1,0 +1,39 @@
+{
+  "name": "news-aggregator-tool",
+  "version": "1.0.0",
+  "description": "News aggregator with GraphQL, RSS, YouTube, IMAP and LLM summarization",
+  "main": "dist/server.js",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:generate": "prisma generate",
+    "prisma:studio": "prisma studio",
+    "prisma:push": "prisma db push"
+  },
+  "keywords": ["graphql", "rss", "youtube", "imap", "llm", "news"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@apollo/server": "^4.10.0",
+    "@prisma/client": "^6.0.0",
+    "class-validator": "^0.14.1",
+    "dotenv": "^16.4.5",
+    "graphql": "^16.8.1",
+    "imap": "^0.8.19",
+    "mailparser": "^3.7.1",
+    "node-cron": "^3.0.3",
+    "ollama": "^0.5.0",
+    "rss-parser": "^3.13.0",
+    "winston": "^3.11.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.0",
+    "@types/node-cron": "^3.0.11",
+    "prisma": "^6.0.0",
+    "tsx": "^4.7.1",
+    "typescript": "^5.7.2"
+  }
+}

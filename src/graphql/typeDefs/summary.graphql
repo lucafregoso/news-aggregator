@@ -1,0 +1,48 @@
+type Summary {
+  id: ID!
+  topics: [TopicSummary!]!
+  totalArticles: Int!
+  timeRange: TimeRange!
+  generatedAt: DateTime!
+  articleIds: [ID!]!
+}
+
+type TopicSummary {
+  topic: String!
+  summary: String!
+  articles: [Article!]!
+  sources: [Source!]!
+  count: Int!
+}
+
+type TimeRange {
+  startDate: DateTime!
+  endDate: DateTime!
+}
+
+extend type Query {
+  # Query principale - usa cache se disponibile
+  summary(
+    startDate: DateTime!
+    endDate: DateTime!
+    topics: [String!]
+    forceRefresh: Boolean
+  ): Summary!
+
+  # NUOVO: Lista riepiloghi salvati
+  summaries(
+    startDate: DateTime
+    endDate: DateTime
+    limit: Int
+  ): [Summary!]!
+
+  # NUOVO: Singolo riepilogo salvato
+  savedSummary(id: ID!): Summary
+}
+
+extend type Mutation {
+  # NUOVO: Elimina riepiloghi vecchi
+  cleanOldSummaries(olderThanDays: Int!): Int!
+}
+
+scalar DateTime
