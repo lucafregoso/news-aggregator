@@ -1,0 +1,30 @@
+type Article {
+  id: ID!
+  source: Source!
+  title: String!
+  content: String!
+  author: String
+  publishedAt: DateTime!
+  topic: String!
+  macroTopic: String!
+  url: String
+  extractedAt: DateTime!
+}
+
+type CheckResult {
+  checkedSources: Int!
+  newArticles: Int!
+  errors: [String!]!
+}
+
+extend type Query {
+  articles(
+    startDate: DateTime!
+    endDate: DateTime!
+    topics: [String!]
+  ): [Article!]!
+}
+
+extend type Mutation {
+  checkSources(sourceIds: [ID!]): CheckResult!
+}

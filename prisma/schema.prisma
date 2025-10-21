@@ -1,0 +1,47 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SourceType {
+  RSS
+  YOUTUBE
+  IMAP
+}
+
+model Source {
+  id          String    @id @default(uuid())
+  name        String
+  type        SourceType
+  config      Json
+  active      Boolean   @default(true)
+  lastChecked DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  articles    Article[]
+
+  @@index([type, active])
+  @@index([lastChecked])
+}
+
+model Article {
+  id          String   @id @default(uuid())
+  sourceId    String
+  source      Source   @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  title       String
+  content     String   @db.Text
+  author      String?
+  publishedAt DateTime
+  topic       String
+  macroTopic  String
+  url         String?
+  extractedAt DateTime @default(now())
+
+  @@index([publishedAt, topic])
+  @@index([sourceId])
+  @@index([macroTopic])
+}

@@ -1,0 +1,29 @@
+type Summary {
+  topics: [TopicSummary!]!
+  totalArticles: Int!
+  timeRange: TimeRange!
+  generatedAt: DateTime!
+}
+
+type TopicSummary {
+  topic: String!
+  summary: String!
+  articles: [Article!]!
+  sources: [Source!]!
+  count: Int!
+}
+
+type TimeRange {
+  startDate: DateTime!
+  endDate: DateTime!
+}
+
+extend type Query {
+  summary(
+    startDate: DateTime!
+    endDate: DateTime!
+    topics: [String!]
+  ): Summary!
+}
+
+scalar DateTime
