@@ -45,3 +45,14 @@ model Article {
   @@index([sourceId])
   @@index([macroTopic])
 }
+
+model Summary {
+  id            String   @id @default(uuid())
+  startDate     DateTime
+  endDate       DateTime
+  topics        Json
+  totalArticles Int
+  generatedAt   DateTime @default(now())
+  articleIds    String[]
+  queryTopics   String[]
+}

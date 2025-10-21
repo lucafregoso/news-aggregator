@@ -14,6 +14,7 @@ type Article {
 type CheckResult {
   checkedSources: Int!
   newArticles: Int!
+  pendingTopicExtraction: Int!
   errors: [String!]!
 }
 
@@ -23,8 +24,18 @@ extend type Query {
     endDate: DateTime!
     topics: [String!]
   ): [Article!]!
+
+  # NUOVO: Conta articoli con topic pending
+  pendingTopicsCount: Int!
 }
 
 extend type Mutation {
-  checkSources(sourceIds: [ID!]): CheckResult!
+  # AGGIORNATO: supporta fast mode
+  checkSources(
+    sourceIds: [ID!]
+    fastMode: Boolean
+  ): CheckResult!
+
+  # NUOVO: Processa articoli con topic pending
+  processPendingTopics(batchSize: Int): Int!
 }
