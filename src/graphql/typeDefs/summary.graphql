@@ -20,8 +20,25 @@ type TimeRange {
   endDate: DateTime!
 }
 
+type SummaryJobResponse {
+  jobId: ID!
+  status: String!
+}
+
+type SummaryJobStatus {
+  jobId: ID!
+  status: String!
+  progress: Float!
+  currentTopic: Int!
+  totalTopics: Int!
+  result: Summary
+  error: String
+  createdAt: DateTime!
+  startedAt: DateTime
+  completedAt: DateTime
+}
+
 extend type Query {
-  # Query principale - usa cache se disponibile
   summary(
     startDate: DateTime!
     endDate: DateTime!
@@ -29,20 +46,25 @@ extend type Query {
     forceRefresh: Boolean
   ): Summary!
 
-  # NUOVO: Lista riepiloghi salvati
   summaries(
     startDate: DateTime
     endDate: DateTime
     limit: Int
   ): [Summary!]!
 
-  # NUOVO: Singolo riepilogo salvato
   savedSummary(id: ID!): Summary
+
+  summaryJobStatus(jobId: ID!): SummaryJobStatus
 }
 
 extend type Mutation {
-  # NUOVO: Elimina riepiloghi vecchi
   cleanOldSummaries(olderThanDays: Int!): Int!
+
+  generateSummaryAsync(
+    startDate: DateTime!
+    endDate: DateTime!
+    topics: [String]
+  ): SummaryJobResponse!
 }
 
 scalar DateTime

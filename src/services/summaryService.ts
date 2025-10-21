@@ -36,9 +36,7 @@ if (!prisma) {
 
 async function getCachedSummary(request: SummaryRequest): Promise<Summary | null> {
   try {
-    if (!prisma || !prisma.summary) {
-      return null;
-    }
+    if (!prisma?.summary) return null;
 
     const cached = await prisma.summary.findFirst({
       where: {
@@ -86,8 +84,7 @@ async function saveSummary(summary: Summary): Promise<string> {
       return 'temp-id-' + Date.now();
     }
 
-    logger.info('💾 Saving summary with ' + summary.topics.length + ' topics...');
-
+    logger.info('💾 Saving summary...');
     const saved = await prisma.summary.create({
       data: {
         startDate: summary.timeRange.startDate,
@@ -99,15 +96,21 @@ async function saveSummary(summary: Summary): Promise<string> {
       },
     });
 
-    logger.info('✅ Summary saved to DB:', { id: saved.id, topics: saved.topics.length });
+    logger.info('✅ Summary saved to DB:', { id: saved.id });
     return saved.id;
   } catch (error) {
-    logger.error('❌ CRITICAL: Error saving summary:', error);
+    logger.error('Error saving summary:', error);
     throw error;
   }
 }
 
-export async function generateSummary(request: SummaryRequest): Promise<Summary> {
+// ✅ FUNZIONE INTERNA - Usata sia da generateSummary che dal Job Worker
+export async function generateSummaryInternal(
+  startDate: Date,
+  endDate: Date,
+  topics?: string[],
+  onProgress?: (current: number, total: number) => Promise<void>
+): Promise<Summary> {
   const startTime = Date.now();
 
   try {
@@ -115,25 +118,15 @@ export async function generateSummary(request: SummaryRequest): Promise<Summary>
       throw new Error('Database not initialized');
     }
 
-    if (!request.forceRefresh) {
-      logger.info('📦 Checking cache...');
-      const cached = await getCachedSummary(request);
-      if (cached) return cached;
-    }
-
-    logger.info('🔄 Generating new summary', {
-      startDate: request.startDate,
-      endDate: request.endDate,
-    });
+    logger.info('🔄 Generating summary', { startDate, endDate });
 
     const MAX_ARTICLES = 100;
-    const MAX_TOPICS_PER_BATCH = 10; // ← LIMITE IMPORTANTE!
 
     logger.info('🔍 Fetching articles...');
     const articles = await prisma.article.findMany({
       where: {
-        publishedAt: { gte: request.startDate, lte: request.endDate },
-        ...(request.topics?.length ? { topic: { in: request.topics } } : {}),
+        publishedAt: { gte: startDate, lte: endDate },
+        ...(topics?.length ? { topic: { in: topics } } : {}),
       },
       include: { source: true },
       orderBy: { publishedAt: 'desc' },
@@ -146,7 +139,7 @@ export async function generateSummary(request: SummaryRequest): Promise<Summary>
       return {
         topics: [],
         totalArticles: 0,
-        timeRange: { startDate: request.startDate, endDate: request.endDate },
+        timeRange: { startDate, endDate },
         generatedAt: new Date(),
         articleIds: [],
       };
@@ -163,26 +156,18 @@ export async function generateSummary(request: SummaryRequest): Promise<Summary>
     );
 
     const totalTopics = clusters.size;
-    logger.info(`✅ Clustering complete: ${totalTopics} unique topics`);
-
-    if (totalTopics > MAX_TOPICS_PER_BATCH) {
-      logger.warn(`⚠️  WARNING: ${totalTopics} topics found, processing in batches...`);
-    }
+    logger.info(`✅ Clustering complete: ${totalTopics} topics`);
 
     const topicSummaries: TopicSummary[] = [];
     let processedCount = 0;
-    let errorCount = 0;
 
-    // ✅ PROCESSA I TOPIC IN BATCH PER EVITARE MEMORY OVERFLOW
     const topicsArray = Array.from(clusters.entries());
 
     for (let i = 0; i < topicsArray.length; i++) {
       const [topic, articleIds] = topicsArray[i];
 
       try {
-        logger.info(
-          `📝 [${i + 1}/${totalTopics}] Processing: "${topic.substring(0, 50)}" (${articleIds.length} articles)`
-        );
+        logger.info(`📝 [${i + 1}/${totalTopics}] Processing: "${topic.substring(0, 50)}"`);
 
         const topicArticles = articles.filter((a) => articleIds.includes(a.id));
 
@@ -211,13 +196,12 @@ export async function generateSummary(request: SummaryRequest): Promise<Summary>
 
         processedCount++;
 
-        // ✅ SALVA PERIODICAMENTE PER EVITARE LOSS
-        if (processedCount % MAX_TOPICS_PER_BATCH === 0) {
-          logger.info(`🔄 Checkpoint: ${processedCount}/${totalTopics} topics processed`);
+        // ✅ Chiama callback onProgress se provided (da job worker)
+        if (onProgress) {
+          await onProgress(processedCount, totalTopics);
         }
       } catch (error) {
-        errorCount++;
-        logger.error(`❌ ERROR processing topic "${topic}":`, error);
+        logger.error(`❌ ERROR processing topic:`, error);
         topicSummaries.push({
           topic,
           summary: `[Error: ${error}]`,
@@ -228,31 +212,47 @@ export async function generateSummary(request: SummaryRequest): Promise<Summary>
       }
     }
 
-    logger.info(
-      `✅ Processing complete: ${processedCount}/${totalTopics} topics (${errorCount} errors)`
-    );
+    logger.info(`✅ Processing complete: ${processedCount}/${totalTopics} topics`);
 
     const summary: Summary = {
       topics: topicSummaries,
       totalArticles: articles.length,
-      timeRange: { startDate: request.startDate, endDate: request.endDate },
+      timeRange: { startDate, endDate },
       generatedAt: new Date(),
       articleIds: articles.map((a) => a.id),
     };
 
-    // ✅ SALVA AL DB - QUESTO ERA IL PASSAGGIO MANCANTE!
-    logger.info('💾 Saving to database...');
-    const summaryId = await saveSummary(summary);
-    summary.id = summaryId;
-
     const duration = Date.now() - startTime;
-    logger.info(`🎉 Complete! Duration: ${duration}ms (${(duration / 1000).toFixed(1)}s)`);
+    logger.info(`🎉 Complete! Duration: ${(duration / 1000).toFixed(1)}s`);
 
     return summary;
   } catch (error) {
     logger.error('❌ FATAL in generateSummary:', error);
     throw error;
   }
+}
+
+// ✅ LEGACY API - Mantiene compatibilità
+export async function generateSummary(request: SummaryRequest): Promise<Summary> {
+  if (!request.forceRefresh) {
+    const cached = await getCachedSummary(request);
+    if (cached) return cached;
+  }
+
+  const summary = await generateSummaryInternal(
+    request.startDate,
+    request.endDate,
+    request.topics
+  );
+
+  try {
+    const summaryId = await saveSummary(summary);
+    summary.id = summaryId;
+  } catch (error) {
+    logger.warn('Could not save summary to cache');
+  }
+
+  return summary;
 }
 
 export async function getSavedSummaries(
@@ -328,6 +328,7 @@ export async function cleanOldSummaries(olderThanDays: number): Promise<number> 
 
 export default {
   generateSummary,
+  generateSummaryInternal,
   getSavedSummaries,
   getSavedSummary,
   cleanOldSummaries,
