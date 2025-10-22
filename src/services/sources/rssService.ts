@@ -24,8 +24,8 @@ export async function fetchRSSFeed(config: RSSConfig): Promise<RSSItem[]> {
 
     return feed.items.map((item) => ({
       title: item.title || 'Untitled',
-      content: item.contentSnippet || item.content || item.description || '',
-      author: item.creator || item.author || undefined,
+      content: item.contentSnippet || item.content || (item as any).description || '',
+      author: (item as any).creator || (item as any).author || undefined,
       publishedAt: item.pubDate ? new Date(item.pubDate) : new Date(),
       url: item.link || undefined,
     }));

@@ -3,15 +3,16 @@ import { generateSummaryInternal } from './services/summaryService.js';
 import { logger } from './utils/logger.js';
 
 /**
- * Background Worker
- * Processa i job in stato QUEUED
- * Avvia come: npm run worker
+ * Background Worker - OTTIMIZZATO
+ * 1. Processa job QUEUED
+ * 2. Genera summary
+ * 3. Salva result in Summary table
+ * 4. Elimina SummaryJob
  */
 
 async function processQueue() {
-  logger.info('🤖 Worker started - monitoring jobs...');
+  logger.info('🤖 Worker started - monitoring job queue...');
 
-  // Controlla ogni 5 secondi
   setInterval(async () => {
     try {
       // Trova job in QUEUED state
@@ -21,11 +22,10 @@ async function processQueue() {
       });
 
       if (!queuedJob) {
-        // Niente da processare
         return;
       }
 
-      logger.info(`📝 Processing job ${queuedJob.id}...`);
+      logger.info(`📝 [Queue] Processing job ${queuedJob.id}...`);
 
       // Aggiorna status a PROCESSING
       await prisma.summaryJob.update({
@@ -45,11 +45,11 @@ async function processQueue() {
             totalTopics: total,
           },
         });
-        logger.info(`⏳ Job ${queuedJob.id}: ${current}/${total} topics`);
+        logger.info(`⏳ [Queue] Job ${queuedJob.id}: ${current}/${total} topics`);
       };
 
       // Genera il summary
-      logger.info(`🧠 Generating summary for job ${queuedJob.id}...`);
+      logger.info(`🧠 [Queue] Generating summary for job ${queuedJob.id}...`);
       const result = await generateSummaryInternal(
         queuedJob.startDate,
         queuedJob.endDate,
@@ -57,20 +57,31 @@ async function processQueue() {
         onProgress
       );
 
-      // Salva risultato
-      await prisma.summaryJob.update({
-        where: { id: queuedJob.id },
+      // ✅ NUOVO: Salva result in Summary table
+      logger.info(`💾 [Queue] Moving result to Summary table...`);
+      const savedSummary = await prisma.summary.create({
         data: {
-          status: 'COMPLETED',
-          result: result as any,
-          completedAt: new Date(),
-          totalTopics: result.topics.length,
+          startDate: queuedJob.startDate,
+          endDate: queuedJob.endDate,
+          topics: result.topics as any,
+          totalArticles: result.totalArticles,
+          articleIds: result.articleIds || [],
+          queryTopics: queuedJob.topics,
         },
       });
 
-      logger.info(`✅ Job ${queuedJob.id} completed!`);
+      logger.info(`✅ [Queue] Summary saved: ${savedSummary.id}`);
+
+      // ✅ NUOVO: Elimina il job dalla coda
+      await prisma.summaryJob.delete({
+        where: { id: queuedJob.id },
+      });
+
+      logger.info(`🗑️  [Queue] Job ${queuedJob.id} removed from queue`);
+      logger.info(`✅ [Queue] Job completed! Summary: ${savedSummary.id}`);
+
     } catch (error) {
-      // Aggiorna job come FAILED
+      // Se fallisce, segna come FAILED ma NON eliminare
       const failedJob = await prisma.summaryJob.findFirst({
         where: { status: 'PROCESSING' },
         orderBy: { startedAt: 'desc' },
@@ -86,12 +97,12 @@ async function processQueue() {
           },
         });
 
-        logger.error(`❌ Job ${failedJob.id} failed:`, error);
+        logger.error(`❌ [Queue] Job ${failedJob.id} failed:`, error);
       } else {
-        logger.error('❌ Unknown error in worker:', error);
+        logger.error('❌ [Queue] Unknown error:', error);
       }
     }
-  }, 5000); // Controlla ogni 5 secondi
+  }, 5000);
 }
 
 // Avvia il worker

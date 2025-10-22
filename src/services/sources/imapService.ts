@@ -1,5 +1,6 @@
 import Imap from 'imap';
 import { simpleParser, ParsedMail } from 'mailparser';
+import { Readable } from 'stream';
 import { logger } from '../../utils/logger.js';
 import { IMAPConfig } from '../../config/sources.js';
 
@@ -70,7 +71,7 @@ export async function fetchIMAPEmails(config: IMAPConfig): Promise<EmailItem[]> 
 
             fetch.on('message', (msg, seqno) => {
               msg.on('body', (stream, info) => {
-                simpleParser(stream, async (err, parsed: ParsedMail) => {
+                simpleParser(stream as Readable, async (err: any, parsed: ParsedMail) => {
                   if (err) {
                     logger.error('Error parsing email:', err);
                     return;
@@ -78,7 +79,7 @@ export async function fetchIMAPEmails(config: IMAPConfig): Promise<EmailItem[]> 
 
                   emails.push({
                     title: parsed.subject || 'No Subject',
-                    content: parsed.text || parsed.html?.replace(/<[^>]*>/g, '') || '',
+                    content: parsed.text || ((parsed.html || '') as string).replace(/<[^>]*>/g, '') || '',
                     author: parsed.from?.text || undefined,
                     publishedAt: parsed.date || new Date(),
                     url: undefined,
@@ -111,7 +112,7 @@ export async function fetchIMAPEmails(config: IMAPConfig): Promise<EmailItem[]> 
       processFolder(0);
     });
 
-    imap.once('error', (err) => {
+    imap.once('error', (err: any) => {
       logger.error('IMAP connection error:', err);
       reject(err);
     });
