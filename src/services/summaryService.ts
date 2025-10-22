@@ -65,7 +65,7 @@ async function getCachedSummary(request: SummaryRequest): Promise<Summary | null
     logger.info('Using cached summary', { id: cached.id });
     return {
       id: cached.id,
-      topics: cached.topics as TopicSummary[],
+      topics: cached.topics as unknown as TopicSummary[],
       totalArticles: cached.totalArticles,
       timeRange: { startDate: cached.startDate, endDate: cached.endDate },
       generatedAt: cached.generatedAt,
@@ -176,7 +176,7 @@ export async function generateSummaryInternal(
           topicArticles.map((a) => ({
             title: a.title,
             content: a.content,
-            author: a.author,
+            author: a.author ?? undefined,
           }))
         );
 
@@ -274,7 +274,7 @@ export async function getSavedSummaries(
 
     return summaries.map((s) => ({
       id: s.id,
-      topics: s.topics as TopicSummary[],
+      topics: s.topics as unknown as TopicSummary[],
       totalArticles: s.totalArticles,
       timeRange: { startDate: s.startDate, endDate: s.endDate },
       generatedAt: s.generatedAt,
@@ -295,7 +295,7 @@ export async function getSavedSummary(id: string): Promise<Summary | null> {
 
     return {
       id: summary.id,
-      topics: summary.topics as TopicSummary[],
+      topics: summary.topics as unknown as TopicSummary[],
       totalArticles: summary.totalArticles,
       timeRange: { startDate: summary.startDate, endDate: summary.endDate },
       generatedAt: summary.generatedAt,
